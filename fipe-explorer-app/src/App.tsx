@@ -37,6 +37,28 @@ interface VehiculoFipe {
 // Tipos de vehículos soportados por la API (y por nuestra app)
 type TipoVehiculoAPI = 'carros' | 'motos' | 'caminhoes';
 
+// Función para traducir el mes de referencia
+const traducirMesReferencia = (mesReferenciaPT: string): string => {
+  if (!mesReferenciaPT) return '';
+  const [mesPT, anio] = mesReferenciaPT.toLowerCase().split(' de ');
+  const mesesMap: { [key: string]: string } = {
+    janeiro: 'enero',
+    fevereiro: 'febrero',
+    março: 'marzo',
+    abril: 'abril',
+    maio: 'mayo',
+    junho: 'junio',
+    julho: 'julio',
+    agosto: 'agosto',
+    setembro: 'septiembre',
+    outubro: 'octubre',
+    novembro: 'noviembre',
+    dezembro: 'diciembre'
+  };
+  const mesES = mesesMap[mesPT] || mesPT; // Si no se encuentra, usa el original
+  return `${mesES.charAt(0).toUpperCase() + mesES.slice(1)} de ${anio}`;
+};
+
 function App() {
   const [tipoVehiculo, setTipoVehiculo] = useState<TipoVehiculoAPI>('carros');
   const [marcas, setMarcas] = useState<Marca[]>([]);
@@ -214,9 +236,9 @@ function App() {
           <div>
             <label htmlFor="tipoVehiculo" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Vehículo</label>
             <select id="tipoVehiculo" value={tipoVehiculo} onChange={handleTipoChange} className={selectInputClasses}>
-              <option value="carros">Carros</option>
+              <option value="carros">Coches</option>
               <option value="motos">Motos</option>
-              <option value="caminhoes">Caminhões</option>
+              <option value="caminhoes">Camiones</option>
             </select>
           </div>
 
@@ -273,7 +295,7 @@ function App() {
               <p className="text-3xl font-bold text-green-700 mt-4"><span className="font-semibold text-gray-800">Valor FIPE:</span> {vehiculoFipe.Valor}</p>
               <hr className="my-4"/>
               <p className="text-sm text-gray-600"><span className="font-semibold">Código FIPE:</span> {vehiculoFipe.CodigoFipe}</p>
-              <p className="text-sm text-gray-600"><span className="font-semibold">Mes de Referencia:</span> {vehiculoFipe.MesReferencia}</p>
+              <p className="text-sm text-gray-600"><span className="font-semibold">Mes de Referencia:</span> {traducirMesReferencia(vehiculoFipe.MesReferencia)}</p>
             </div>
           )}
 

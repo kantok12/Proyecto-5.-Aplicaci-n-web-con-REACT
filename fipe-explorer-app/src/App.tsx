@@ -7,6 +7,7 @@ import SidebarFiltros from './SidebarFiltros';
 import ResultadoConsulta from './ResultadoConsulta';
 import SidebarNav from './SidebarNav';
 import HistoricoPage from './HistoricoPage';
+import DashboardPage from './DashboardPage';
 
 // Definimos un tipo para las marcas para mayor claridad con TypeScript
 interface Marca {
@@ -384,6 +385,7 @@ export default function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/historico" element={<HistoricoPage />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="*" element={<div className='flex flex-col items-center justify-center h-full p-8'><h2 className='text-2xl font-bold mb-4'>404 - Página no encontrada</h2></div>} />
                 </Routes>
               </main>

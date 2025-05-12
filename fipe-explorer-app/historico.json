@@ -1,6 +1,18 @@
 [
   {
     "tipo": "carros",
+    "marca": "AM Gen",
+    "modelo": "Hummer Open-Top 6.5 4x4 Diesel TB",
+    "ano": "1999"
+  },
+  {
+    "tipo": "carros",
+    "marca": "AM Gen",
+    "modelo": "Hummer Open-Top 6.5 4x4 Diesel TB",
+    "ano": "1999"
+  },
+  {
+    "tipo": "carros",
     "marca": "Audi",
     "modelo": "80 2.0",
     "ano": "1995",

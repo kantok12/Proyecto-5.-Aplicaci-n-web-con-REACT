@@ -38,11 +38,11 @@ interface SidebarFiltrosProps {
   onConsultar: () => void;
   disableConsultar: boolean;
   loadingConsultar: boolean;
-  historico: Array<{tipo: string, marca: string, modelo: string, ano: string}>;
 }
 
-const selectInputClasses = "mt-1 block w-full py-2 px-3 border border-gray-300 bg-white text-gray-900 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-200 disabled:text-gray-500";
-const searchInputClasses = "mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm mb-2";
+// Actualizar clases de inputs/selects para tema oscuro
+const selectInputClasses = "mt-1 block w-full py-2 px-3 border border-gray-500 bg-gray-600 text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-500 disabled:text-gray-400";
+const searchInputClasses = "mt-1 block w-full py-2 px-3 border border-gray-500 bg-gray-600 text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm mb-2 placeholder-gray-400";
 
 export default function SidebarFiltros(props: SidebarFiltrosProps) {
   const filteredMarcas = props.marcas.filter(marca => 
@@ -147,10 +147,10 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
   }, [props.modelos, props.marcaSearchTerm]);
 
   return (
-    <aside className="w-1/4 bg-white p-6 rounded-lg shadow-lg space-y-6 h-full flex flex-col justify-between">
+    <aside className="w-1/4 bg-gray-700 p-6 rounded-lg shadow-lg space-y-6 h-full flex flex-col justify-between">
       {/* Botón Consultar en la parte superior */}
       <button
-        className="mb-4 w-full px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:bg-gray-400 flex items-center justify-center gap-2"
+        className="mb-4 w-full px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:bg-gray-500 flex items-center justify-center gap-2"
         onClick={props.onConsultar}
         disabled={props.disableConsultar}
       >
@@ -166,7 +166,7 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
       <div className="flex-1 flex flex-col space-y-6">
         {/* 1. Tipo de Vehículo */}
         <div>
-          <label htmlFor="tipoVehiculo" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Vehículo</label>
+          <label htmlFor="tipoVehiculo" className="block text-sm font-medium text-gray-300 mb-1">Tipo de Vehículo</label>
           <select id="tipoVehiculo" value={props.tipoVehiculo} onChange={e => props.setTipoVehiculo(e.target.value as TipoVehiculoAPI)} className={selectInputClasses}>
             <option value="carros">Coches</option>
             <option value="motos">Motos</option>
@@ -175,7 +175,7 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
         </div>
         {/* 2. Marcas */}
         <div>
-          <label htmlFor="marcaSearch" className="block text-sm font-medium text-gray-700 mb-1">Buscar Marca</label>
+          <label htmlFor="marcaSearch" className="block text-sm font-medium text-gray-300 mb-1">Buscar Marca</label>
           <input 
             type="text"
             id="marcaSearch"
@@ -184,9 +184,9 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
             onChange={e => props.setMarcaSearchTerm(e.target.value)}
             className={searchInputClasses}
           />
-          <label htmlFor="marcas" className="block text-sm font-medium text-gray-700 mb-1 sr-only">Marca</label>
-          {props.loadingMarcas && <p className="text-xs text-gray-500 italic">Cargando marcas...</p>}
-          {props.errorMarcas && <p className="text-xs text-red-500 italic">{props.errorMarcas}</p>}
+          <label htmlFor="marcas" className="block text-sm font-medium text-gray-300 mb-1 sr-only">Marca</label>
+          {props.loadingMarcas && <p className="text-xs text-gray-400 italic">Cargando marcas...</p>}
+          {props.errorMarcas && <p className="text-xs text-red-400 italic">{props.errorMarcas}</p>}
           <select 
             id="marcas" 
             value={props.selectedMarca?.codigo || ''} 
@@ -198,15 +198,15 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
             {filteredMarcas.map(marca => <option key={marca.codigo} value={marca.codigo}>{marca.nome}</option>)}
           </select>
           {filteredMarcas.length === 0 && !props.loadingMarcas && props.marcas.length > 0 && (
-            <p className="text-xs text-gray-500 italic mt-1">No se encontraron marcas con "{props.marcaSearchTerm}".</p>
+            <p className="text-xs text-gray-400 italic mt-1">No se encontraron marcas con "{props.marcaSearchTerm}".</p>
           )}
         </div>
         {/* 3. Modelos */}
         {props.selectedMarca && (
           <div>
-            <label htmlFor="modelos" className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
-            {props.loadingModelos && <p className="text-xs text-gray-500 italic">Cargando modelos...</p>}
-            {props.errorModelos && <p className="text-xs text-red-500 italic">{props.errorModelos}</p>}
+            <label htmlFor="modelos" className="block text-sm font-medium text-gray-300 mb-1">Modelo</label>
+            {props.loadingModelos && <p className="text-xs text-gray-400 italic">Cargando modelos...</p>}
+            {props.errorModelos && <p className="text-xs text-red-400 italic">{props.errorModelos}</p>}
             <select id="modelos" value={props.selectedModelo?.codigo || ''} onChange={handleModeloChange} disabled={props.loadingModelos || filteredModelos.length === 0} className={selectInputClasses}>
               <option value="" disabled={filteredModelos.length > 0}>Seleccione un modelo</option>
               {filteredModelos.map(modelo => <option key={modelo.codigo} value={modelo.codigo}>{modelo.nome}</option>)}
@@ -216,9 +216,9 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
         {/* 4. Año (sin filtro de combustible) */}
         {props.selectedModelo && (
           <div>
-            <label htmlFor="anos" className="block text-sm font-medium text-gray-700 mb-1">Año</label>
-            {props.loadingAnos && <p className="text-xs text-gray-500 italic">Cargando años...</p>}
-            {props.errorAnos && <p className="text-xs text-red-500 italic">{props.errorAnos}</p>}
+            <label htmlFor="anos" className="block text-sm font-medium text-gray-300 mb-1">Año</label>
+            {props.loadingAnos && <p className="text-xs text-gray-400 italic">Cargando años...</p>}
+            {props.errorAnos && <p className="text-xs text-red-400 italic">{props.errorAnos}</p>}
             <select id="anos" value={selectedAnoValue} onChange={handleAnoChange} disabled={props.loadingAnos || anosOptions.length === 0} className={selectInputClasses}>
               <option value="" disabled={anosOptions.length > 0}>Seleccione año</option>
               {anosOptions.map(ano => (
@@ -228,10 +228,10 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
             {/* Mostrar combustible solo como información */}
             {selectedAnoValue && (
               <div className="mt-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Combustible</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Combustible</label>
                 <input
                   type="text"
-                  className="block w-full py-2 px-3 border border-gray-300 bg-gray-100 text-gray-900 rounded-md shadow-sm sm:text-sm"
+                  className="block w-full py-2 px-3 border border-gray-500 bg-gray-500 text-gray-200 rounded-md shadow-sm sm:text-sm"
                   value={selectedCombustibleValue || 'N/A'}
                   readOnly
                 />

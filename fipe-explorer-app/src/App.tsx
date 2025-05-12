@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import About from './About';
 import './App.css';
 import ErrorBoundary from './ErrorBoundary';
 import SidebarFiltros from './SidebarFiltros';
 import ResultadoConsulta from './ResultadoConsulta';
+import SidebarNav from './SidebarNav';
+import HistoricoPage from './HistoricoPage';
 
 // Definimos un tipo para las marcas para mayor claridad con TypeScript
 interface Marca {
@@ -64,6 +66,16 @@ const traducirMesReferencia = (mesReferenciaPT: string): string => {
   return `${mesES.charAt(0).toUpperCase() + mesES.slice(1)} de ${anio}`;
 };
 
+// Crear el Contexto para limpiar la caché
+interface ICacheContext {
+  cacheClearTrigger: number; // Un número que cambia para disparar el efecto
+  triggerCacheClear: () => void; // Función para cambiar el número
+}
+export const CacheContext = createContext<ICacheContext>({ 
+  cacheClearTrigger: 0, 
+  triggerCacheClear: () => {} 
+});
+
 function Home() {
   const [tipoVehiculo, setTipoVehiculo] = useState<TipoVehiculoAPI>('carros');
   const [marcas, setMarcas] = useState<Marca[]>([]);
@@ -90,11 +102,26 @@ function Home() {
   const modelosCache = useRef<{ [key: string]: Modelo[] }>({});
   const anosCache = useRef<{ [key: string]: AnoValor[] }>({});
 
+  const { cacheClearTrigger } = useContext(CacheContext);
+
+  // Efecto para limpiar la caché cuando cambie el trigger del contexto
+  useEffect(() => {
+    if (cacheClearTrigger > 0) { // Se activa solo cuando el trigger cambia desde 0
+      console.log("Limpiando caché de API...");
+      marcasCache.current = {};
+      modelosCache.current = {};
+      anosCache.current = {};
+      // Opcional: Forzar recarga de datos iniciales si es necesario,
+      // pero al limpiar la caché, los efectos de carga se activarán solos
+      // al cambiar de selección.
+    }
+  }, [cacheClearTrigger]);
+
   // Nuevo estado para controlar la consulta manual
   const [consultaPendiente, setConsultaPendiente] = useState(false);
 
   // Histórico de consultas
-  const [historico, setHistorico] = useState<Array<{tipo: string, marca: string, modelo: string, ano: string}>>([]);
+  const [historico, setHistorico] = useState<Array<{tipo: string, marca: string, modelo: string, ano: string, combustible: string}>>([]);
 
   const API_BASE_URL = 'https://parallelum.com.br/fipe/api/v1';
 
@@ -230,11 +257,15 @@ function Home() {
   // Guardar en histórico tras consulta exitosa
   useEffect(() => {
     if (vehiculoFipe && selectedMarca && selectedModelo && selectedAno) {
-      const { ano } = extraerAnoComb(selectedAno.nome);
-      setHistorico(prev => [
-        { tipo: tipoVehiculo, marca: selectedMarca.nome, modelo: selectedModelo.nome, ano },
-        ...prev
-      ]);
+      const { ano, combustible } = extraerAnoComb(selectedAno.nome);
+      const nuevo = { tipo: tipoVehiculo, marca: selectedMarca.nome, modelo: selectedModelo.nome, ano, combustible };
+      // POST al backend
+      fetch('http://localhost:4000/historico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevo)
+      });
+      setHistorico(prev => [nuevo, ...prev]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehiculoFipe]);
@@ -297,21 +328,12 @@ function Home() {
           setSelectedAno={setSelectedAno}
           loadingAnos={loadingAnos}
           errorAnos={errorAnos}
+          onConsultar={() => setConsultaPendiente(true)}
+          disableConsultar={!selectedAno || loadingVehiculo}
+          loadingConsultar={loadingVehiculo}
+          historico={historico}
         />
         <div className="flex flex-col w-3/4">
-          <button
-            className="mb-4 self-end px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:bg-gray-400 flex items-center justify-center gap-2"
-            onClick={() => setConsultaPendiente(true)}
-            disabled={!selectedAno || loadingVehiculo}
-          >
-            {loadingVehiculo && (
-              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-              </svg>
-            )}
-            {loadingVehiculo ? 'Consultando...' : 'Consultar'}
-          </button>
           <ResultadoConsulta
             vehiculoFipe={vehiculoFipe}
             loadingVehiculo={loadingVehiculo}
@@ -319,19 +341,6 @@ function Home() {
             selectedAno={selectedAno}
             traducirMesReferencia={traducirMesReferencia}
           />
-          {/* Histórico de consultas */}
-          {historico.length > 0 && (
-            <div className="mt-8 bg-white rounded-lg shadow p-4">
-              <h3 className="text-lg font-semibold mb-2">Histórico de consultas</h3>
-              <ul className="divide-y divide-gray-200">
-                {historico.map((item, idx) => (
-                  <li key={idx} className="py-2 text-sm text-gray-700">
-                    <span className="font-semibold">{item.tipo}</span> | <span>{item.marca}</span> | <span>{item.modelo}</span> | <span>{item.ano}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -339,28 +348,50 @@ function Home() {
 }
 
 export default function App() {
+  // Cargar histórico desde localStorage al iniciar
+  const [historico, setHistorico] = useState<Array<{tipo: string, marca: string, modelo: string, ano: string, combustible: string}>>(() => {
+    const data = localStorage.getItem('historico_fipe');
+    return data ? JSON.parse(data) : [];
+  });
+
+  // Guardar histórico en localStorage cada vez que cambie
+  useEffect(() => {
+    localStorage.setItem('historico_fipe', JSON.stringify(historico));
+  }, [historico]);
+
+  // Estado y función para el trigger de limpieza de caché
+  const [cacheClearTrigger, setCacheClearTrigger] = useState(0);
+  const triggerCacheClear = () => {
+    console.log("Disparando limpieza de caché...");
+    setCacheClearTrigger(prev => prev + 1); // Incrementar para disparar el efecto
+  };
+
   return (
-    <Router>
-      <ErrorBoundary>
-        <div className="flex flex-col min-h-screen w-full bg-gray-100">
-          {/* Cabecera con navegación */}
-          <header className="bg-gray-800 text-white p-4 shadow-md w-full flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Consulta FIPE</h1>
-            <nav>
-              <Link to="/" className="mr-4 hover:underline">Inicio</Link>
-              <Link to="/about" className="hover:underline">Acerca de</Link>
-            </nav>
-          </header>
-          <main className="flex-1 w-full">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
-              <Route path="*" element={<div className='flex flex-col items-center justify-center h-full p-8'><h2 className='text-2xl font-bold mb-4'>404 - Página no encontrada</h2></div>} />
-            </Routes>
-          </main>
-        </div>
-      </ErrorBoundary>
-    </Router>
+    <CacheContext.Provider value={{ cacheClearTrigger, triggerCacheClear }}>
+      <Router>
+        <ErrorBoundary>
+          <div className="flex min-h-screen w-full bg-gray-100">
+            <SidebarNav />
+            <div className="flex-1 ml-[220px] flex flex-col min-h-screen">
+              <header className="bg-gray-800 text-white p-4 shadow-md w-full flex items-center justify-end">
+                <nav>
+                  <Link to="/" className="mr-4 hover:underline">Inicio</Link>
+                  <Link to="/about" className="hover:underline">Acerca de</Link>
+                </nav>
+              </header>
+              <main className="flex-1 w-full flex flex-row gap-8 p-8">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/historico" element={<HistoricoPage />} />
+                  <Route path="*" element={<div className='flex flex-col items-center justify-center h-full p-8'><h2 className='text-2xl font-bold mb-4'>404 - Página no encontrada</h2></div>} />
+                </Routes>
+              </main>
+            </div>
+          </div>
+        </ErrorBoundary>
+      </Router>
+    </CacheContext.Provider>
   );
 }
 
@@ -379,3 +410,8 @@ function extraerAnoComb(nombre: string) {
   }
   return { ano: '', combustible: nombre.trim() };
 }
+
+export const HistoricoContext = createContext<{
+  historico: Array<{tipo: string, marca: string, modelo: string, ano: string, combustible: string}>;
+  setHistorico: React.Dispatch<React.SetStateAction<Array<{tipo: string, marca: string, modelo: string, ano: string, combustible: string}>>>;
+} | undefined>(undefined);

@@ -65,6 +65,7 @@ function App() {
   const [selectedMarca, setSelectedMarca] = useState<Marca | null>(null);
   const [loadingMarcas, setLoadingMarcas] = useState<boolean>(false);
   const [errorMarcas, setErrorMarcas] = useState<string | null>(null);
+  const [marcaSearchTerm, setMarcaSearchTerm] = useState(''); // Estado para búsqueda de marcas
 
   const [modelos, setModelos] = useState<Modelo[]>([]);
   const [selectedModelo, setSelectedModelo] = useState<Modelo | null>(null);
@@ -91,7 +92,7 @@ function App() {
       setErrorMarcas(null);
       setMarcas([]);
       setSelectedMarca(null);
-      // Resets en cadena
+      setMarcaSearchTerm(''); // Resetear búsqueda de marca
       setModelos([]);
       setSelectedModelo(null);
       setAnosDisponibles([]);
@@ -116,7 +117,6 @@ function App() {
     if (!selectedMarca) {
       setModelos([]);
       setSelectedModelo(null);
-      // Resets en cadena
       setAnosDisponibles([]);
       setSelectedAno(null);
       setVehiculoFipe(null);
@@ -201,8 +201,9 @@ function App() {
   };
 
   const handleMarcaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const marca = marcas.find(m => m.codigo === e.target.value);
-    setSelectedMarca(marca || null);
+    const marcaCodigo = e.target.value;
+    const marcaSeleccionada = marcas.find(m => m.codigo === marcaCodigo);
+    setSelectedMarca(marcaSeleccionada || null);
   };
 
   const handleModeloChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -215,8 +216,13 @@ function App() {
     setSelectedAno(ano || null);
   };
 
+  const filteredMarcas = marcas.filter(marca => 
+    marca.nome.toLowerCase().includes(marcaSearchTerm.toLowerCase())
+  );
+
   // Clases comunes para los selectores para mantener consistencia
   const selectInputClasses = "mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-200 disabled:text-gray-500";
+  const searchInputClasses = "mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm mb-2";
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
@@ -244,13 +250,31 @@ function App() {
 
           {/* 2. Marcas */}
           <div>
-            <label htmlFor="marcas" className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+            <label htmlFor="marcaSearch" className="block text-sm font-medium text-gray-700 mb-1">Buscar Marca</label>
+            <input 
+              type="text"
+              id="marcaSearch"
+              placeholder="Escriba para filtrar marcas..."
+              value={marcaSearchTerm}
+              onChange={(e) => setMarcaSearchTerm(e.target.value)}
+              className={searchInputClasses}
+            />
+            <label htmlFor="marcas" className="block text-sm font-medium text-gray-700 mb-1 sr-only">Marca</label> {/* sr-only para accesibilidad si el label visible es "Buscar Marca"*/}
             {loadingMarcas && <p className="text-xs text-gray-500 italic">Cargando marcas...</p>}
             {errorMarcas && <p className="text-xs text-red-500 italic">{errorMarcas}</p>}
-            <select id="marcas" value={selectedMarca?.codigo || ''} onChange={handleMarcaChange} disabled={loadingMarcas || marcas.length === 0} className={selectInputClasses}>
-              <option value="" disabled={marcas.length > 0}>Seleccione una marca</option>
-              {marcas.map(marca => <option key={marca.codigo} value={marca.codigo}>{marca.nome}</option>)}
+            <select 
+              id="marcas" 
+              value={selectedMarca?.codigo || ''} 
+              onChange={handleMarcaChange} 
+              disabled={loadingMarcas || filteredMarcas.length === 0}
+              className={selectInputClasses}
+            >
+              <option value="" disabled={filteredMarcas.length > 0}>Seleccione una marca</option>
+              {filteredMarcas.map(marca => <option key={marca.codigo} value={marca.codigo}>{marca.nome}</option>)}
             </select>
+            {filteredMarcas.length === 0 && !loadingMarcas && marcas.length > 0 && (
+              <p className="text-xs text-gray-500 italic mt-1">No se encontraron marcas con "{marcaSearchTerm}".</p>
+            )}
           </div>
 
           {/* 3. Modelos */}

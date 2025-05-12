@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import About from './About';
 import './App.css';
@@ -86,28 +86,41 @@ function Home() {
   const [loadingVehiculo, setLoadingVehiculo] = useState<boolean>(false);
   const [errorVehiculo, setErrorVehiculo] = useState<string | null>(null);
 
+  const marcasCache = useRef<{ [tipo: string]: Marca[] }>({});
+  const modelosCache = useRef<{ [key: string]: Modelo[] }>({});
+  const anosCache = useRef<{ [key: string]: AnoValor[] }>({});
+
+  // Nuevo estado para controlar la consulta manual
+  const [consultaPendiente, setConsultaPendiente] = useState(false);
+
+  // Histórico de consultas
+  const [historico, setHistorico] = useState<Array<{tipo: string, marca: string, modelo: string, ano: string}>>([]);
+
   const API_BASE_URL = 'https://parallelum.com.br/fipe/api/v1';
 
-  // Cargar Marcas
+  // Cargar Marcas (con caché)
   useEffect(() => {
     if (!tipoVehiculo) return;
-    
+    if (marcasCache.current[tipoVehiculo]) {
+      setMarcas(marcasCache.current[tipoVehiculo]);
+      return;
+    }
     const fetchMarcas = async () => {
       setLoadingMarcas(true);
       setErrorMarcas(null);
       setMarcas([]);
       setSelectedMarca(null);
-      setMarcaSearchTerm(''); // Resetear búsqueda de marca
+      setMarcaSearchTerm('');
       setModelos([]);
       setSelectedModelo(null);
       setAnosDisponibles([]);
       setSelectedAno(null);
-      setVehiculoFipe(null);
       try {
         const response = await fetch(`${API_BASE_URL}/${tipoVehiculo}/marcas`);
         if (!response.ok) throw new Error(`Error HTTP ${response.status} al cargar marcas.`);
         const data = await response.json();
         setMarcas(data);
+        marcasCache.current[tipoVehiculo] = data;
       } catch (err: any) {
         setErrorMarcas(err.message);
       } finally {
@@ -117,14 +130,18 @@ function Home() {
     fetchMarcas();
   }, [tipoVehiculo]);
 
-  // Cargar Modelos
+  // Cargar Modelos (con caché y preparado para filtrado futuro)
   useEffect(() => {
     if (!selectedMarca) {
       setModelos([]);
       setSelectedModelo(null);
       setAnosDisponibles([]);
       setSelectedAno(null);
-      setVehiculoFipe(null);
+      return;
+    }
+    const cacheKey = `${tipoVehiculo}-${selectedMarca.codigo}`;
+    if (modelosCache.current[cacheKey]) {
+      setModelos(modelosCache.current[cacheKey]);
       return;
     }
     const fetchModelos = async () => {
@@ -134,12 +151,13 @@ function Home() {
       setSelectedModelo(null);
       setAnosDisponibles([]);
       setSelectedAno(null);
-      setVehiculoFipe(null);
       try {
         const response = await fetch(`${API_BASE_URL}/${tipoVehiculo}/marcas/${selectedMarca.codigo}/modelos`);
         if (!response.ok) throw new Error(`Error HTTP ${response.status} al cargar modelos.`);
         const data: ApiResponseModelos = await response.json();
         setModelos(data.modelos);
+        // Guardar en caché para futuros filtrados
+        modelosCache.current[cacheKey] = data.modelos;
       } catch (err: any) {
         setErrorModelos(err.message);
       } finally {
@@ -149,12 +167,16 @@ function Home() {
     fetchModelos();
   }, [selectedMarca, tipoVehiculo]);
 
-  // Cargar Años del Modelo
+  // Cargar Años del Modelo (con caché)
   useEffect(() => {
     if (!selectedModelo) {
       setAnosDisponibles([]);
       setSelectedAno(null);
-      setVehiculoFipe(null);
+      return;
+    }
+    const cacheKey = `${tipoVehiculo}-${selectedMarca?.codigo}-${selectedModelo.codigo}`;
+    if (anosCache.current[cacheKey]) {
+      setAnosDisponibles(anosCache.current[cacheKey]);
       return;
     }
     const fetchAnos = async () => {
@@ -162,12 +184,12 @@ function Home() {
       setErrorAnos(null);
       setAnosDisponibles([]);
       setSelectedAno(null);
-      setVehiculoFipe(null);
       try {
         const response = await fetch(`${API_BASE_URL}/${tipoVehiculo}/marcas/${selectedMarca?.codigo}/modelos/${selectedModelo.codigo}/anos`);
         if (!response.ok) throw new Error(`Error HTTP ${response.status} al cargar años.`);
         const data = await response.json();
         setAnosDisponibles(data);
+        anosCache.current[cacheKey] = data;
       } catch (err: any) {
         setErrorAnos(err.message);
       } finally {
@@ -177,10 +199,12 @@ function Home() {
     fetchAnos();
   }, [selectedModelo, selectedMarca, tipoVehiculo]);
 
-  // Cargar Valor FIPE del Vehículo
+  // Cargar Valor FIPE del Vehículo (solo al hacer click en Consultar)
   useEffect(() => {
+    if (!consultaPendiente) return;
     if (!selectedAno) {
       setVehiculoFipe(null);
+      setConsultaPendiente(false);
       return;
     }
     const fetchVehiculo = async () => {
@@ -196,10 +220,24 @@ function Home() {
         setErrorVehiculo(err.message);
       } finally {
         setLoadingVehiculo(false);
+        setConsultaPendiente(false);
       }
     };
     fetchVehiculo();
-  }, [selectedAno, selectedModelo, selectedMarca, tipoVehiculo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultaPendiente]);
+
+  // Guardar en histórico tras consulta exitosa
+  useEffect(() => {
+    if (vehiculoFipe && selectedMarca && selectedModelo && selectedAno) {
+      const { ano } = extraerAnoComb(selectedAno.nome);
+      setHistorico(prev => [
+        { tipo: tipoVehiculo, marca: selectedMarca.nome, modelo: selectedModelo.nome, ano },
+        ...prev
+      ]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehiculoFipe]);
 
   const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setTipoVehiculo(e.target.value as TipoVehiculoAPI);
@@ -260,13 +298,41 @@ function Home() {
           loadingAnos={loadingAnos}
           errorAnos={errorAnos}
         />
-        <ResultadoConsulta
-          vehiculoFipe={vehiculoFipe}
-          loadingVehiculo={loadingVehiculo}
-          errorVehiculo={errorVehiculo}
-          selectedAno={selectedAno}
-          traducirMesReferencia={traducirMesReferencia}
-        />
+        <div className="flex flex-col w-3/4">
+          <button
+            className="mb-4 self-end px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:bg-gray-400 flex items-center justify-center gap-2"
+            onClick={() => setConsultaPendiente(true)}
+            disabled={!selectedAno || loadingVehiculo}
+          >
+            {loadingVehiculo && (
+              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+            )}
+            {loadingVehiculo ? 'Consultando...' : 'Consultar'}
+          </button>
+          <ResultadoConsulta
+            vehiculoFipe={vehiculoFipe}
+            loadingVehiculo={loadingVehiculo}
+            errorVehiculo={errorVehiculo}
+            selectedAno={selectedAno}
+            traducirMesReferencia={traducirMesReferencia}
+          />
+          {/* Histórico de consultas */}
+          {historico.length > 0 && (
+            <div className="mt-8 bg-white rounded-lg shadow p-4">
+              <h3 className="text-lg font-semibold mb-2">Histórico de consultas</h3>
+              <ul className="divide-y divide-gray-200">
+                {historico.map((item, idx) => (
+                  <li key={idx} className="py-2 text-sm text-gray-700">
+                    <span className="font-semibold">{item.tipo}</span> | <span>{item.marca}</span> | <span>{item.modelo}</span> | <span>{item.ano}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -296,4 +362,20 @@ export default function App() {
       </ErrorBoundary>
     </Router>
   );
+}
+
+// función extraerAnoComb para uso en App
+function extraerAnoComb(nombre: string) {
+  const match = nombre.match(/^(\d{4})(.*)$/);
+  if (match) {
+    const yearNum = parseInt(match[1], 10);
+    if (!isNaN(yearNum) && yearNum <= 2300) {
+      return {
+        ano: match[1],
+        combustible: match[2].trim(),
+      };
+    }
+    return { ano: '', combustible: nombre.trim() };
+  }
+  return { ano: '', combustible: nombre.trim() };
 }

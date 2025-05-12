@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 
 interface Marca {
   codigo: string;
@@ -45,6 +45,103 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
     marca.nome.toLowerCase().includes(props.marcaSearchTerm.toLowerCase())
   );
 
+  // Extra: función para extraer año y combustible
+  function extraerAnoComb(nombre: string) {
+    const match = nombre.match(/^(\d{4})(.*)$/);
+    if (match) {
+      const yearNum = parseInt(match[1], 10);
+      if (!isNaN(yearNum) && yearNum <= 2300) {
+        return {
+          ano: match[1],
+          combustible: match[2].trim(),
+        };
+      }
+      return { ano: '', combustible: nombre.trim() };
+    }
+    return { ano: '', combustible: nombre.trim() };
+  }
+
+  // Detectar tipo de combustible sugerido por el modelo
+  const modeloSugeridoDiesel = props.selectedModelo && /\(diesel\)/i.test(props.selectedModelo.nome);
+
+  // Agrupar años y combustibles
+  const anosAgrupados = useMemo(() => {
+    const agrupado: { [ano: string]: string[] } = {};
+    props.anosDisponibles.forEach(a => {
+      const { ano, combustible } = extraerAnoComb(a.nome);
+      if (ano) {
+        if (!agrupado[ano]) agrupado[ano] = [];
+        agrupado[ano].push(combustible || '');
+      }
+    });
+    return agrupado;
+  }, [props.anosDisponibles]);
+
+  // Estado local para año y combustible seleccionados
+  const selectedAnoValue = props.selectedAno ? extraerAnoComb(props.selectedAno.nome).ano : '';
+  const selectedCombustibleValue = props.selectedAno ? extraerAnoComb(props.selectedAno.nome).combustible : '';
+
+  // Opciones de años
+  const anosOptions = Object.keys(anosAgrupados);
+  // Opciones de combustibles para el año seleccionado
+  const combustiblesOptions = selectedAnoValue ? anosAgrupados[selectedAnoValue] : [];
+
+  // Efecto para preseleccionar combustible sugerido al cambiar modelo o año
+  useEffect(() => {
+    if (!selectedAnoValue || combustiblesOptions.length === 0) return;
+    // Si ya hay un combustible seleccionado válido, no hacer nada
+    if (combustiblesOptions.includes(selectedCombustibleValue)) return;
+    // Buscar sugerido
+    let sugerido = '';
+    if (modeloSugeridoDiesel) {
+      sugerido = combustiblesOptions.find(c => /diesel/i.test(c)) || '';
+    } else {
+      sugerido = combustiblesOptions.find(c => /gasolina/i.test(c)) || combustiblesOptions[0] || '';
+    }
+    if (sugerido) {
+      // Buscar el objeto año+combustible
+      const anoObj = props.anosDisponibles.find(a => {
+        const parsed = extraerAnoComb(a.nome);
+        return parsed.ano === selectedAnoValue && parsed.combustible === sugerido;
+      });
+      if (anoObj) props.setSelectedAno(anoObj);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.selectedModelo, selectedAnoValue, combustiblesOptions.length]);
+
+  // Handler para seleccionar año (ahora único filtro)
+  function handleAnoChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const year = e.target.value;
+    // Buscar el primer año disponible con ese valor
+    const anoObj = props.anosDisponibles.find(a => extraerAnoComb(a.nome).ano === year);
+    props.setSelectedAno(anoObj || null);
+  }
+  // Handler para seleccionar marca
+  function handleMarcaChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const marcaCodigo = e.target.value;
+    const marcaSeleccionada = props.marcas.find(m => m.codigo === marcaCodigo);
+    props.setSelectedMarca(marcaSeleccionada || null);
+    // Reiniciar modelo y año
+    props.setSelectedModelo(null);
+    props.setSelectedAno(null);
+    if (props.errorAnos) props.errorAnos = null;
+  }
+  // Handler para seleccionar modelo
+  function handleModeloChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const modelo = props.modelos.find(m => m.codigo.toString() === e.target.value);
+    props.setSelectedModelo(modelo || null);
+    // Reiniciar año
+    props.setSelectedAno(null);
+    if (props.errorAnos) props.errorAnos = null;
+  }
+
+  // Filtro local de modelos usando el caché
+  const filteredModelos = useMemo(() => {
+    if (!props.modelos || props.modelos.length === 0) return [];
+    if (!props.marcaSearchTerm) return props.modelos;
+    return props.modelos.filter(m => m.nome.toLowerCase().includes(props.marcaSearchTerm.toLowerCase()));
+  }, [props.modelos, props.marcaSearchTerm]);
+
   return (
     <aside className="w-1/4 bg-white p-6 rounded-lg shadow-lg space-y-6 h-full">
       <h2 className="text-xl font-semibold text-gray-700 border-b pb-2">Filtros</h2>
@@ -74,10 +171,7 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
         <select 
           id="marcas" 
           value={props.selectedMarca?.codigo || ''} 
-          onChange={e => {
-            const marcaSeleccionada = props.marcas.find(m => m.codigo === e.target.value);
-            props.setSelectedMarca(marcaSeleccionada || null);
-          }}
+          onChange={handleMarcaChange} 
           disabled={props.loadingMarcas || filteredMarcas.length === 0}
           className={selectInputClasses}
         >
@@ -94,28 +188,36 @@ export default function SidebarFiltros(props: SidebarFiltrosProps) {
           <label htmlFor="modelos" className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
           {props.loadingModelos && <p className="text-xs text-gray-500 italic">Cargando modelos...</p>}
           {props.errorModelos && <p className="text-xs text-red-500 italic">{props.errorModelos}</p>}
-          <select id="modelos" value={props.selectedModelo?.codigo || ''} onChange={e => {
-            const modelo = props.modelos.find(m => m.codigo.toString() === e.target.value);
-            props.setSelectedModelo(modelo || null);
-          }} disabled={props.loadingModelos || props.modelos.length === 0} className={selectInputClasses}>
-            <option value="" disabled={props.modelos.length > 0}>Seleccione un modelo</option>
-            {props.modelos.map(modelo => <option key={modelo.codigo} value={modelo.codigo}>{modelo.nome}</option>)}
+          <select id="modelos" value={props.selectedModelo?.codigo || ''} onChange={handleModeloChange} disabled={props.loadingModelos || filteredModelos.length === 0} className={selectInputClasses}>
+            <option value="" disabled={filteredModelos.length > 0}>Seleccione un modelo</option>
+            {filteredModelos.map(modelo => <option key={modelo.codigo} value={modelo.codigo}>{modelo.nome}</option>)}
           </select>
         </div>
       )}
-      {/* 4. Años del Modelo */}
+      {/* 4. Año (sin filtro de combustible) */}
       {props.selectedModelo && (
         <div>
-          <label htmlFor="anos" className="block text-sm font-medium text-gray-700 mb-1">Año/Combustible</label>
+          <label htmlFor="anos" className="block text-sm font-medium text-gray-700 mb-1">Año</label>
           {props.loadingAnos && <p className="text-xs text-gray-500 italic">Cargando años...</p>}
           {props.errorAnos && <p className="text-xs text-red-500 italic">{props.errorAnos}</p>}
-          <select id="anos" value={props.selectedAno?.codigo || ''} onChange={e => {
-            const ano = props.anosDisponibles.find(a => a.codigo === e.target.value);
-            props.setSelectedAno(ano || null);
-          }} disabled={props.loadingAnos || props.anosDisponibles.length === 0} className={selectInputClasses}>
-            <option value="" disabled={props.anosDisponibles.length > 0}>Seleccione año/comb.</option>
-            {props.anosDisponibles.map(ano => <option key={ano.codigo} value={ano.codigo}>{ano.nome}</option>)}
+          <select id="anos" value={selectedAnoValue} onChange={handleAnoChange} disabled={props.loadingAnos || anosOptions.length === 0} className={selectInputClasses}>
+            <option value="" disabled={anosOptions.length > 0}>Seleccione año</option>
+            {anosOptions.map(ano => (
+              <option key={ano} value={ano}>{ano}</option>
+            ))}
           </select>
+          {/* Mostrar combustible solo como información */}
+          {selectedAnoValue && (
+            <div className="mt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Combustible</label>
+              <input
+                type="text"
+                className="block w-full py-2 px-3 border border-gray-300 bg-gray-100 text-gray-900 rounded-md shadow-sm sm:text-sm"
+                value={selectedCombustibleValue || 'N/A'}
+                readOnly
+              />
+            </div>
+          )}
         </div>
       )}
     </aside>

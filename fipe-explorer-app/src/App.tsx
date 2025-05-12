@@ -53,6 +53,9 @@ export const HistoricoContext = createContext<IHistoricoContext>({
   agregarAlHistorico: async () => { console.warn("agregarAlHistorico no implementado"); },
 });
 
+// Definir la URL base del backend usando la variable de entorno
+const API_BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'; // Fallback para desarrollo local
+
 export default function App() {
   // Estado y función para el trigger de limpieza de caché
   const [cacheClearTrigger, setCacheClearTrigger] = useState(0);
@@ -69,13 +72,13 @@ export default function App() {
   // Cargar histórico inicial desde el backend
   useEffect(() => {
     setLoadingHistorico(true);
-    fetch('http://localhost:4000/historico')
+    fetch(`${API_BACKEND_URL}/historico`) // Usar la URL base definida
       .then(res => {
         if (!res.ok) throw new Error(`Error HTTP ${res.status} al cargar histórico`);
         return res.json();
       })
       .then(data => {
-        setHistorico(Array.isArray(data) ? data.filter(Boolean) : []); // Filtrar nulos por si acaso
+        setHistorico(Array.isArray(data) ? data.filter(Boolean) : []);
         setErrorHistorico(null);
       })
       .catch(err => {
@@ -84,32 +87,27 @@ export default function App() {
         setHistorico([]);
       })
       .finally(() => setLoadingHistorico(false));
-  }, []);
+  }, []); // La URL base no necesita ser dependencia aquí
 
   // Función para agregar un nuevo ítem al histórico (local y backend)
   const agregarAlHistorico = useCallback(async (item: HistoricoItem) => {
     // Optimistic update
     setHistorico(prevHistorico => [item, ...prevHistorico]); 
     try {
-      const response = await fetch('http://localhost:4000/historico', {
+      const response = await fetch(`${API_BACKEND_URL}/historico`, { // Usar la URL base definida
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(item)
       });
       if (!response.ok) {
         throw new Error(`Error HTTP ${response.status} al guardar en histórico`);
-        // Considerar revertir el estado optimista aquí si falla el POST
-        // setHistorico(prevHistorico => prevHistorico.filter(h => h !== item)); // Simple revert
       }
-      // Opcional: recargar el histórico completo para asegurar consistencia si el backend modifica el ítem
-      // fetch('http://localhost:4000/historico').then(r=>r.json()).then(d=>setHistorico(d)); 
     } catch (error: any) {
       console.error("Error guardando en histórico:", error);
-      setErrorHistorico(error.message); // Mostrar error al usuario
-       // Revertir si la API falla
+      setErrorHistorico(error.message); 
       setHistorico(prevHistorico => prevHistorico.filter(h => h !== item && (h.marca !== item.marca || h.modelo !== item.modelo || h.ano !== item.ano)));
     }
-  }, []);
+  }, []); // La URL base no necesita ser dependencia aquí
 
   return (
     <Router>

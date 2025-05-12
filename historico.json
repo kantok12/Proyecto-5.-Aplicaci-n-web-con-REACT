@@ -1,0 +1,65 @@
+[
+  {
+    "tipo": "carros",
+    "marca": "AM Gen",
+    "modelo": "Hummer Open-Top 6.5 4x4 Diesel TB",
+    "ano": "1999"
+  },
+  {
+    "tipo": "carros",
+    "marca": "AM Gen",
+    "modelo": "Hummer Open-Top 6.5 4x4 Diesel TB",
+    "ano": "1999"
+  },
+  {
+    "tipo": "carros",
+    "marca": "Audi",
+    "modelo": "80 2.0",
+    "ano": "1995",
+    "combustible": "Gasolina"
+  },
+  {
+    "tipo": "carros",
+    "marca": "Agrale",
+    "modelo": "MARRUÁ AM 100 2.8 CD TDI Diesel",
+    "ano": "2009",
+    "combustible": "Diesel"
+  },
+  {
+    "tipo": "caminhoes",
+    "marca": "BEPOBUS",
+    "modelo": "NÀSCERE RODOVIARIO (diesel)(E6)",
+    "ano": "2025",
+    "combustible": ""
+  },
+  {
+    "tipo": "motos",
+    "marca": "AGRALE",
+    "modelo": "DAKAR 30.0 190cc",
+    "ano": "1991",
+    "combustible": ""
+  },
+  {
+    "tipo": "motos",
+    "marca": "AGRALE",
+    "modelo": "DAKAR 30.0 190cc",
+    "ano": "1991",
+    "combustible": ""
+  },
+  {
+    "tipo": "motos",
+    "marca": "AGRALE",
+    "modelo": "DAKAR 30.0 190cc",
+    "ano": "1991",
+    "combustible": ""
+  },
+  null,
+  {
+    "tipo": "motos",
+    "marca": "AGRALE",
+    "modelo": "DAKAR 30.0 190cc",
+    "ano": "1991",
+    "combustible": ""
+  },
+  null
+]

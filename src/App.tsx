@@ -1,0 +1,125 @@
+import { useState, useEffect, createContext, useCallback } from 'react';
+import { BrowserRouter as Router, Link } from 'react-router-dom';
+import './App.css';
+// import HomePage from './HomePage'; // Removed
+// import HistoricoPage from './HistoricoPage'; // Removed
+import type { HistoricoItem } from './types';
+import SidebarNav from './SidebarNav';
+import AnimatedRoutes from './components/AnimatedRoutes';
+
+// Crear el Contexto para limpiar la caché
+interface ICacheContext {
+  cacheClearTrigger: number; // Un número que cambia para disparar el efecto
+  triggerCacheClear: () => void; // Función para cambiar el número
+}
+export const CacheContext = createContext<ICacheContext>({ 
+  cacheClearTrigger: 0, 
+  triggerCacheClear: () => {} 
+});
+
+// --- CONTEXTO PARA DATOS DEL HISTÓRICO ---
+interface IHistoricoContext {
+  historico: HistoricoItem[];
+  loadingHistorico: boolean;
+  errorHistorico: string | null;
+  agregarAlHistorico: (item: HistoricoItem) => Promise<void>;
+}
+export const HistoricoContext = createContext<IHistoricoContext>({
+  historico: [],
+  loadingHistorico: true,
+  errorHistorico: null,
+  agregarAlHistorico: async () => { console.warn("agregarAlHistorico no implementado"); },
+});
+
+// Definir la URL base del backend usando la variable de entorno
+const API_BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'; // Fallback para desarrollo local
+
+export default function App() {
+  // Estado y función para el trigger de limpieza de caché
+  const [cacheClearTrigger, setCacheClearTrigger] = useState(0);
+  const triggerCacheClear = () => {
+    console.log("Disparando limpieza de caché...");
+    setCacheClearTrigger(prev => prev + 1); // Incrementar para disparar el efecto
+  };
+
+  // Estado centralizado para el histórico
+  const [historico, setHistorico] = useState<HistoricoItem[]>([]);
+  const [loadingHistorico, setLoadingHistorico] = useState(true);
+  const [errorHistorico, setErrorHistorico] = useState<string | null>(null);
+
+  // Cargar histórico inicial desde el backend
+  useEffect(() => {
+    setLoadingHistorico(true);
+    fetch(`${API_BACKEND_URL}/historico`) // Usar la URL base definida
+      .then(res => {
+        if (!res.ok) throw new Error(`Error HTTP ${res.status} al cargar histórico`);
+        return res.json();
+      })
+      .then(data => {
+        setHistorico(Array.isArray(data) ? data.filter(Boolean) : []);
+        setErrorHistorico(null);
+      })
+      .catch(err => {
+        console.error("Error cargando histórico:", err);
+        setErrorHistorico(err.message);
+        setHistorico([]);
+      })
+      .finally(() => setLoadingHistorico(false));
+  }, []); // La URL base no necesita ser dependencia aquí
+
+  // Función para agregar un nuevo ítem al histórico (local y backend)
+  const agregarAlHistorico = useCallback(async (item: HistoricoItem) => {
+    // Optimistic update
+    setHistorico(prevHistorico => [item, ...prevHistorico]); 
+    try {
+      const response = await fetch(`${API_BACKEND_URL}/historico`, { // Usar la URL base definida
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+      });
+      if (!response.ok) {
+        throw new Error(`Error HTTP ${response.status} al guardar en histórico`);
+      }
+    } catch (error: any) {
+      console.error("Error guardando en histórico:", error);
+      setErrorHistorico(error.message); 
+      setHistorico(prevHistorico => prevHistorico.filter(h => h !== item && (h.marca !== item.marca || h.modelo !== item.modelo || h.ano !== item.ano)));
+    }
+  }, []); // La URL base no necesita ser dependencia aquí
+
+  return (
+    <Router>
+      <CacheContext.Provider value={{ cacheClearTrigger, triggerCacheClear }}>
+        <HistoricoContext.Provider value={{ historico, loadingHistorico, errorHistorico, agregarAlHistorico }}>
+          <div className="flex flex-col min-h-screen bg-gray-900 text-gray-100">
+            <header className="bg-gray-800 text-white p-4 shadow-md">
+              <div className="container mx-auto flex items-center">
+                <div className="flex-1"></div>
+                <h1 className="text-2xl font-bold text-center px-4">
+                  <Link to="/">Explorador Tabela FIPE</Link>
+                </h1>
+                <nav className="flex-1 text-right">
+                  <Link to="/about" className="hover:text-blue-400 transition-colors">Acerca de</Link>
+                </nav>
+              </div>
+            </header>
+
+            <div className="flex flex-1 pt-4">
+              <aside className="w-64 p-4 space-y-4 bg-gray-800 shadow-lg fixed top-16 left-0 h-[calc(100vh-4rem)] overflow-y-auto">
+                <SidebarNav />
+              </aside>
+
+              <main className="flex-1 p-4 ml-64 overflow-y-auto" style={{ position: 'relative' }}>
+                <AnimatedRoutes />
+              </main>
+            </div>
+
+            <footer className="bg-gray-800 text-white p-3 text-center text-sm shadow-md mt-auto">
+              <p>&copy; {new Date().getFullYear()} FIPE Explorer. Todos os direitos reservados.</p>
+            </footer>
+          </div>
+        </HistoricoContext.Provider>
+      </CacheContext.Provider>
+    </Router>
+  );
+}
